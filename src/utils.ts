@@ -1,4 +1,4 @@
-import { retry } from "rxjs"
+import { firstValueFrom, from, retry } from 'rxjs';
 import { Task } from "./types/bot_types"
 
 const { API_TOKEN, API_URL } = process.env
@@ -51,31 +51,43 @@ export function phoneFormat(input:string) {
     return input;
 }
 export async function checkOrderStatus(id:number):Promise<boolean> {
-    const response = await fetch(`${process.env.API_URL}/api/orders/${id}`, {
-        headers:{
-            Authorization:`bearer ${process.env.API_TOKEN}`
-        }
-    });
-    console.log("________________________\n",`${process.env.API_URL}/api/orders/${id}`,response)
-    if (!response.ok) throw new Error("Ошибка при загрузке списка заказов.");
-    const data = await response.json()
-    return data.data.attributes.in_procces;
+    try {
+        const response = await firstValueFrom(from(fetch(`${process.env.API_URL}/api/orders/${id}`, {
+            headers:{
+                Authorization:`bearer ${process.env.API_TOKEN}`
+            }
+        })).pipe(
+            retry(3) // retry up to 3 times
+          ))
+        console.log("________________________\n",`${process.env.API_URL}/api/orders/${id}`,response)
+        if (!response.ok) throw new Error("Ошибка при загрузке списка заказов.");
+        const data = await response.json()
+        return data.data.attributes.in_procces;
+    } catch (error) {
+        console.error(error)
+        return false;
+    }
 }
 export async function updateOrderStatus(id:number):Promise<boolean> {
-    const response = await fetch(`${process.env.API_URL}/api/orders/${id}`, {
-    method: 'PUT',
-    headers:{
-        'Content-Type': 'application/json' ,
-        Authorization:`bearer ${process.env.API_TOKEN}`
-    },
-    body:JSON.stringify({
-        data: {
-            in_procces: true
-        }
-      })
-    });
-    console.log("________________________\n",`${process.env.API_URL}/api/orders/${id}`,response)
-    if (!response.ok) throw new Error("Ошибка при загрузке списка заказов.");
-    const data = await response.json()
-    return data.data.attributes.in_procces;
+    try {
+        const response = await fetch(`${process.env.API_URL}/api/orders/${id}`, {
+        method: 'PUT',
+        headers:{
+            'Content-Type': 'application/json' ,
+            Authorization:`bearer ${process.env.API_TOKEN}`
+        },
+        body:JSON.stringify({
+            data: {
+                in_procces: true
+            }
+        })
+        });
+        console.log("________________________\n",`${process.env.API_URL}/api/orders/${id}`,response)
+        if (!response.ok) throw new Error("Ошибка при загрузке списка заказов.");
+        const data = await response.json()
+        return data.data.attributes.in_procces;
+    } catch (error) {
+        console.error(error)
+        return false;
+    }
 }
